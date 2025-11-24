@@ -1,0 +1,17 @@
+{% extends 'base.html' %}
+
+{% block content %}
+<h2>Create New TODO</h2>
+<form method="post">
+    {% csrf_token %}
+    <label>Title:</label>
+    <input type="text" name="title" required>
+    <label>Description:</label>
+    <textarea name="description"></textarea>
+    <label>Due Date:</label>
+    <input type="date" name="due_date">
+    <button type="submit" class="btn btn-primary">Create</button>
+    <a href="{% url 'home' %}" class="btn">Cancel</a>
+</form>
+{% endblock %}
+

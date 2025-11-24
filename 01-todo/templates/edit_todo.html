@@ -1,0 +1,17 @@
+{% extends 'base.html' %}
+
+{% block content %}
+<h2>Edit TODO</h2>
+<form method="post">
+    {% csrf_token %}
+    <label>Title:</label>
+    <input type="text" name="title" value="{{ todo.title }}" required>
+    <label>Description:</label>
+    <textarea name="description">{{ todo.description }}</textarea>
+    <label>Due Date:</label>
+    <input type="date" name="due_date" value="{{ todo.due_date|date:'Y-m-d' }}">
+    <button type="submit" class="btn btn-primary">Update</button>
+    <a href="{% url 'home' %}" class="btn">Cancel</a>
+</form>
+{% endblock %}
+
