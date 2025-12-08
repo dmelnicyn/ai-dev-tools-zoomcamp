@@ -46,20 +46,20 @@ export function EditorPanel({
       return;
     }
 
-    // Update lastEmittedValueRef immediately to prevent race conditions
-    // This ensures subsequent identical changes within 500ms are properly detected
+    // Update lastEmittedValueRef immediately to track the latest value
+    // This ensures subsequent identical changes within the debounce window are properly detected
     lastEmittedValueRef.current = code;
-    onChange(code);
 
     // Clear any pending debounce timer
     if (debounceTimerRef.current) {
       clearTimeout(debounceTimerRef.current);
     }
 
-    // The debounce timer is no longer needed for lastEmittedValueRef update
-    // since we update it immediately above. This timer could be used for other
-    // debouncing purposes if needed in the future.
-    debounceTimerRef.current = null;
+    // Debounce onChange calls to reduce WebSocket traffic (500ms delay)
+    debounceTimerRef.current = setTimeout(() => {
+      onChange(code);
+      debounceTimerRef.current = null;
+    }, 500);
   };
 
   useEffect(() => {
