@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useState, useRef, useEffect } from "react";
 
 interface ToolbarProps {
   sessionId: string;
@@ -8,13 +8,29 @@ interface ToolbarProps {
 }
 
 export function Toolbar({ sessionId, language: _language, onRun, canRun }: ToolbarProps) {
-  const [copied, setCopied] = useState(false);
+  const [copiedId, setCopiedId] = useState(false);
+  const [copiedLink, setCopiedLink] = useState(false);
+  const idTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const linkTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null);
 
-  const copyToClipboard = async (text: string) => {
+  // Ensure timeouts are cleared on unmount
+  useEffect(() => {
+    return () => {
+      if (idTimeoutRef.current) clearTimeout(idTimeoutRef.current);
+      if (linkTimeoutRef.current) clearTimeout(linkTimeoutRef.current);
+    };
+  }, []);
+
+  const copyToClipboard = async (
+    text: string,
+    setCopiedState: React.Dispatch<React.SetStateAction<boolean>>,
+    timeoutRef: React.MutableRefObject<ReturnType<typeof setTimeout> | null>
+  ) => {
     try {
       await navigator.clipboard.writeText(text);
-      setCopied(true);
-      setTimeout(() => setCopied(false), 2000);
+      setCopiedState(true);
+      if (timeoutRef.current) clearTimeout(timeoutRef.current);
+      timeoutRef.current = setTimeout(() => setCopiedState(false), 2000);
     } catch (error) {
       console.error("Failed to copy:", error);
     }
@@ -46,7 +62,7 @@ export function Toolbar({ sessionId, language: _language, onRun, canRun }: Toolb
           {sessionId}
         </code>
         <button
-          onClick={() => copyToClipboard(sessionId)}
+          onClick={() => copyToClipboard(sessionId, setCopiedId, idTimeoutRef)}
           style={{
             padding: "0.25rem 0.5rem",
             fontSize: "0.8rem",
@@ -56,13 +72,13 @@ export function Toolbar({ sessionId, language: _language, onRun, canRun }: Toolb
             backgroundColor: "white",
           }}
         >
-          {copied ? "Copied!" : "Copy ID"}
+          {copiedId ? "Copied!" : "Copy ID"}
         </button>
       </div>
 
       <div style={{ display: "flex", gap: "0.5rem", alignItems: "center" }}>
         <button
-          onClick={() => copyToClipboard(sessionUrl)}
+          onClick={() => copyToClipboard(sessionUrl, setCopiedLink, linkTimeoutRef)}
           style={{
             padding: "0.5rem 1rem",
             fontSize: "0.9rem",
@@ -73,7 +89,7 @@ export function Toolbar({ sessionId, language: _language, onRun, canRun }: Toolb
             color: "#007bff",
           }}
         >
-          {copied ? "Link Copied!" : "Copy Share Link"}
+          {copiedLink ? "Link Copied!" : "Copy Share Link"}
         </button>
       </div>
 
