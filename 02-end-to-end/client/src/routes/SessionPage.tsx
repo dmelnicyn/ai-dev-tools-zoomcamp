@@ -61,6 +61,10 @@ export function SessionPage() {
     window.addEventListener("message", handleMessage);
     console.log("Message handler registered");
     
+    // Track timeout and fallback timeout for cleanup
+    let timeoutId: ReturnType<typeof setTimeout> | null = null;
+    let fallbackTimeoutId: ReturnType<typeof setTimeout> | null = null;
+    
     // Function to initialize the iframe
     const initializeIframe = () => {
       // Wait for containerRef to be available
@@ -82,7 +86,7 @@ export function SessionPage() {
         
         // Fallback check: If ready message isn't received after 2 seconds but iframe is loaded,
         // mark as ready anyway (for JavaScript, Python still needs Pyodide)
-        setTimeout(() => {
+        fallbackTimeoutId = setTimeout(() => {
           if (runnerFrameRef.current?.contentWindow && !runnerReadyRef.current) {
             console.warn("Fallback: Assuming iframe is ready (ready message not received)");
             runnerReadyRef.current = true;
@@ -100,20 +104,27 @@ export function SessionPage() {
     // Try to initialize immediately
     if (!initializeIframe()) {
       // If containerRef not ready, try again after a short delay
-      const timeoutId = setTimeout(() => {
+      timeoutId = setTimeout(() => {
         if (initializeIframe()) {
           console.log("Runner iframe initialized after delay");
         }
       }, 100);
-      
-      return () => {
-        clearTimeout(timeoutId);
-        window.removeEventListener("message", handleMessage);
-      };
     }
 
+    // Single cleanup function that handles all cases
     return () => {
+      // Clear any pending timeouts
+      if (timeoutId) {
+        clearTimeout(timeoutId);
+      }
+      if (fallbackTimeoutId) {
+        clearTimeout(fallbackTimeoutId);
+      }
+      
+      // Remove message listener
       window.removeEventListener("message", handleMessage);
+      
+      // Clean up iframe if it exists
       if (runnerFrameRef.current && containerRef.current) {
         try {
           containerRef.current.removeChild(runnerFrameRef.current);
@@ -122,6 +133,8 @@ export function SessionPage() {
         }
         runnerFrameRef.current = null;
       }
+      
+      // Reset ready state
       runnerReadyRef.current = false;
     };
   }, []); // Empty deps - run once on mount
