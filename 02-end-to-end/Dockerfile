@@ -44,8 +44,9 @@ WORKDIR /app
 # - The root package.json only contains dev tools (concurrently) not needed in production
 # - The server is a standalone application with its own dependencies
 # - All TypeScript compilation happened in Stage 2, so we only need runtime dependencies here
+# Use --omit=dev instead of deprecated --only=production (npm 7+)
 COPY server/package*.json ./
-RUN npm ci --only=production
+RUN npm ci --omit=dev
 
 # Copy built backend from Stage 2
 COPY --from=backend-builder /app/server/dist ./dist
