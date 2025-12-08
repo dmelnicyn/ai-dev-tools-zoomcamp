@@ -1,0 +1,15 @@
+services:
+  - type: web
+    name: coding-interview-app
+    env: docker
+    dockerfilePath: ./Dockerfile
+    dockerContext: .
+    plan: free
+    region: oregon
+    envVars:
+      - key: NODE_ENV
+        value: production
+      - key: PORT
+        value: 4000
+    healthCheckPath: /health
+

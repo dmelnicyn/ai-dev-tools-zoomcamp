@@ -1,46 +1,41 @@
-# ai-dev-tools-zoomcamp
+# AI Dev Tools Zoomcamp
 
-A development project for AI development tools and zoomcamp materials.
+This repository contains projects and homework assignments from the **AI Dev Tools Zoomcamp** - a free course that helps you use AI tools to write better code, faster.
+
+## About the Course
+
+AI Dev Tools Zoomcamp is a free course designed to teach developers how to leverage AI-powered development tools to improve their coding workflow, increase productivity, and write better code more efficiently.
 
 ## Projects
 
-### 01-todo - Django TODO Application
+This repository contains the following projects completed as part of the course:
+
+### [01-todo - Django TODO Application](./01-todo/)
 
 A simple Django web application for managing TODOs, built as part of the ai-dev-tools-zoomcamp homework.
 
-**Features:**
-- Create, edit, and delete TODOs
-- Assign due dates to TODOs
-- Mark TODOs as resolved/completed
-- Clean, simple web interface
+**Tech Stack:** Django 5.2.8, Python 3.12+, SQLite
 
-**Tech Stack:**
-- Django 5.2.8
-- Python 3.12+
-- SQLite database
-- `uv` for package management
+See [01-todo/README.md](./01-todo/README.md) for detailed documentation.
 
-**Setup:**
+### [02-end-to-end - Coding Interview Platform](./02-end-to-end/)
 
-```bash
-cd 01-todo
-uv sync
-uv run python manage.py migrate
-uv run python manage.py runserver
-```
+A real-time collaborative coding interview application with syntax highlighting, code execution, and WebSocket-based real-time collaboration.
 
-Then open http://127.0.0.1:8000/ in your browser.
+**Tech Stack:** React, Node.js, Express, Socket.IO, TypeScript, Monaco Editor, Pyodide (WASM)
 
-**Running Tests:**
+See [02-end-to-end/README.md](./02-end-to-end/README.md) for detailed documentation.
 
-```bash
-cd 01-todo
-uv run python manage.py test
-```
+## Getting Started
 
-**Project Structure:**
-- `todo_project/` - Django project configuration
-- `todos/` - Django app with models, views, URLs, and tests
-- `templates/` - HTML templates for the web interface
+Each project has its own directory with a dedicated README file containing:
+- Setup instructions
+- Technology stack details
+- Running and testing instructions
+- Project structure
 
-For detailed implementation plan, see [django-todo-app-homework.plan.md](django-todo-app-homework.plan.md).
+Navigate to the project directory you're interested in and follow the instructions in its README.
+
+## Course Resources
+
+For more information about the AI Dev Tools Zoomcamp course, visit the course website or repository.

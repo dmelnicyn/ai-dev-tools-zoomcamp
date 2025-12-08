@@ -1,0 +1,17 @@
+{
+  "name": "coding-interview-app",
+  "version": "1.0.0",
+  "description": "End-to-end collaborative coding interview application",
+  "scripts": {
+    "dev:server": "cd server && npm run dev",
+    "dev:client": "cd client && npm run dev",
+    "dev": "concurrently \"npm run dev:server\" \"npm run dev:client\"",
+    "test": "cd server && npm test && cd ../client && npm test"
+  },
+  "keywords": [],
+  "author": "",
+  "license": "ISC",
+  "devDependencies": {
+    "concurrently": "^8.2.2"
+  }
+}

@@ -1,0 +1,224 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Code Runner</title>
+  <script src="https://cdn.jsdelivr.net/pyodide/v0.24.1/full/pyodide.js"></script>
+</head>
+<body>
+  <script>
+    const originalLog = console.log;
+    const originalError = console.error;
+    const originalWarn = console.warn;
+    
+    let outputBuffer = [];
+    let pyodide = null;
+    let pyodideReady = false;
+    
+    function interceptConsole() {
+      console.log = function(...args) {
+        outputBuffer.push(args.map(arg => 
+          typeof arg === 'object' ? JSON.stringify(arg, null, 2) : String(arg)
+        ).join(' '));
+        originalLog.apply(console, args);
+      };
+      
+      console.error = function(...args) {
+        outputBuffer.push('ERROR: ' + args.map(arg => 
+          typeof arg === 'object' ? JSON.stringify(arg, null, 2) : String(arg)
+        ).join(' '));
+        originalError.apply(console, args);
+      };
+      
+      console.warn = function(...args) {
+        outputBuffer.push('WARN: ' + args.map(arg => 
+          typeof arg === 'object' ? JSON.stringify(arg, null, 2) : String(arg)
+        ).join(' '));
+        originalWarn.apply(console, args);
+      };
+    }
+    
+    function restoreConsole() {
+      console.log = originalLog;
+      console.error = originalError;
+      console.warn = originalWarn;
+    }
+    
+    async function initializePyodide() {
+      if (pyodideReady) {
+        return;
+      }
+      
+      try {
+        pyodide = await loadPyodide({
+          indexURL: 'https://cdn.jsdelivr.net/pyodide/v0.24.1/full/'
+        });
+        
+        // Make outputBuffer accessible to Python
+        pyodide.globals.set('outputBuffer', outputBuffer);
+        
+        pyodideReady = true;
+        window.parent.postMessage({ type: 'pyodide-ready' }, '*');
+      } catch (error) {
+        window.parent.postMessage({
+          type: 'pyodide-error',
+          error: error.message
+        }, '*');
+      }
+    }
+    
+    async function executeJavaScript(code) {
+      outputBuffer = [];
+      interceptConsole();
+      
+      try {
+        const func = new Function(code);
+        const result = func();
+        
+        if (result !== undefined) {
+          outputBuffer.push(String(result));
+        }
+        
+        restoreConsole();
+        
+        window.parent.postMessage({
+          type: 'result',
+          output: outputBuffer,
+        }, '*');
+      } catch (error) {
+        restoreConsole();
+        
+        window.parent.postMessage({
+          type: 'result',
+          output: outputBuffer,
+          error: error instanceof Error ? error.message : String(error),
+        }, '*');
+      }
+    }
+    
+    async function executePython(code) {
+      if (!pyodideReady) {
+        await initializePyodide();
+      }
+      
+      outputBuffer = [];
+      interceptConsole();
+      
+      try {
+        // Create a function that Python can call to add output
+        const addOutput = (text) => {
+          if (text && text.trim()) {
+            outputBuffer.push(text.trim());
+          }
+        };
+        
+        // Make it available to Python via the js module
+        // Store the function in Pyodide's global scope first
+        pyodide.globals.set('_addOutput', addOutput);
+        
+        // Then set it up in Python so it can be accessed via js.addOutput
+        pyodide.runPython(`
+          import js
+          from pyodide import to_js
+          
+          # Get the JavaScript function from globals and assign it to js.addOutput
+          js.addOutput = _addOutput
+          
+          # Clean up the temporary global
+          del _addOutput
+        `);
+        
+        // Set up Python output capture
+        pyodide.runPython(`
+          import sys
+          
+          class PythonOutputCapture:
+              def __init__(self):
+                  pass
+              
+              def write(self, s):
+                  if s and s.strip():
+                      # Call the JavaScript function to add output
+                      js.addOutput(s)
+              
+              def flush(self):
+                  pass
+          
+          capture = PythonOutputCapture()
+          sys.stdout = capture
+          sys.stderr = capture
+        `);
+        
+        // Execute the user's code
+        const result = pyodide.runPython(code);
+        
+        // If there's a return value, add it to output
+        if (result !== undefined && result !== null) {
+          try {
+            const resultStr = String(result);
+            if (resultStr && resultStr !== 'undefined' && resultStr !== 'None') {
+              outputBuffer.push(resultStr);
+            }
+          } catch (e) {
+            // If conversion fails, try to stringify
+            outputBuffer.push(String(result));
+          }
+        }
+        
+        restoreConsole();
+        
+        window.parent.postMessage({
+          type: 'result',
+          output: outputBuffer,
+        }, '*');
+      } catch (error) {
+        restoreConsole();
+        
+        let errorMessage = error.message || String(error);
+        // Pyodide errors include full traceback
+        if (error.toString && error.toString().includes('Traceback')) {
+          errorMessage = error.toString();
+        } else if (error.message) {
+          errorMessage = error.message;
+        } else {
+          errorMessage = String(error);
+        }
+        
+        window.parent.postMessage({
+          type: 'result',
+          output: outputBuffer,
+          error: errorMessage,
+        }, '*');
+      }
+    }
+    
+    window.addEventListener('message', async function(event) {
+      if (event.data.type === 'run') {
+        const { code, language } = event.data;
+        
+        if (language === 'python') {
+          await executePython(code);
+        } else if (language === 'javascript') {
+          await executeJavaScript(code);
+        } else {
+          window.parent.postMessage({
+            type: 'result',
+            output: [],
+            error: `Language "${language}" is not supported for execution. Only JavaScript and Python are supported.`,
+          }, '*');
+        }
+      }
+    });
+    
+    // Initialize Pyodide in the background
+    if (typeof loadPyodide !== 'undefined') {
+      initializePyodide().catch(err => {
+        console.error('Failed to initialize Pyodide:', err);
+      });
+    }
+    
+    window.parent.postMessage({ type: 'ready' }, '*');
+  </script>
+</body>
+</html>
