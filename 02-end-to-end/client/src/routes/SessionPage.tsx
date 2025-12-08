@@ -111,9 +111,17 @@ export function SessionPage() {
         // mark as ready anyway (for JavaScript, Python still needs Pyodide)
         // Only set fallback if we haven't already received a ready message
         fallbackTimeoutId = setTimeout(() => {
-          if ((iframeElement?.contentWindow || runnerFrameRef.current?.contentWindow) && !runnerReadyRef.current) {
+          // Verify that iframe exists and has a valid contentWindow before marking as ready
+          // This prevents marking as ready if iframe creation failed or iframe hasn't loaded properly
+          const iframe = iframeElement || runnerFrameRef.current;
+          const hasValidWindow = iframe?.contentWindow != null;
+          
+          if (hasValidWindow && !runnerReadyRef.current) {
             console.warn("Fallback: Assuming iframe is ready (ready message not received)");
             runnerReadyRef.current = true;
+          } else if (!hasValidWindow) {
+            console.error("Fallback timeout fired but iframe has no valid contentWindow - runner not ready");
+            setError("Code runner iframe failed to load. Please refresh the page.");
           }
         }, 2000);
         
