@@ -25,6 +25,18 @@ export function SessionPage() {
   const containerRef = useRef<HTMLDivElement>(null);
   const isApplyingRemoteUpdateRef = useRef(false);
   const runnerReadyRef = useRef(false);
+  // Refs to track latest code and language values (to avoid stale closures in async callbacks)
+  const codeRef = useRef<string>(code);
+  const languageRef = useRef<string>(language);
+
+  // Keep refs in sync with state so async callbacks can access latest values
+  useEffect(() => {
+    codeRef.current = code;
+  }, [code]);
+
+  useEffect(() => {
+    languageRef.current = language;
+  }, [language]);
 
   // Initialize runner iframe - separate effect to ensure containerRef is available
   useEffect(() => {
@@ -246,12 +258,15 @@ export function SessionPage() {
     if (!runnerReadyRef.current) {
       console.warn("Runner not ready yet, waiting...", { language });
       // Give it a moment to initialize
+      // Note: We read from refs inside checkReady to get the latest code/language values,
+      // not the stale values from when handleRun was called
       const checkReady = (attempts: number = 0) => {
         if (runnerFrameRef.current && runnerReadyRef.current) {
           console.log("Runner is now ready, executing code");
           setOutput([]);
           setError(undefined);
-          sendCodeToRunner(runnerFrameRef.current, code, language);
+          // Read current code and language from refs to avoid stale closure values
+          sendCodeToRunner(runnerFrameRef.current, codeRef.current, languageRef.current);
         } else if (!runnerFrameRef.current) {
           console.error("Runner iframe is null after waiting");
           setError("Code runner is not initialized. Please refresh the page.");
