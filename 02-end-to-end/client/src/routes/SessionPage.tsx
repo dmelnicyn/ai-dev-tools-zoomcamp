@@ -28,6 +28,8 @@ export function SessionPage() {
   // Refs to track latest code and language values (to avoid stale closures in async callbacks)
   const codeRef = useRef<string>(code);
   const languageRef = useRef<string>(language);
+  // Ref to track checkReady timeout so it can be cleaned up
+  const checkReadyTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null);
 
   // Keep refs in sync with state so async callbacks can access latest values
   useEffect(() => {
@@ -139,6 +141,11 @@ export function SessionPage() {
       }
       if (fallbackTimeoutId) {
         clearTimeout(fallbackTimeoutId);
+      }
+      // Clear checkReady timeout if pending (prevents state updates on unmounted component)
+      if (checkReadyTimeoutRef.current) {
+        clearTimeout(checkReadyTimeoutRef.current);
+        checkReadyTimeoutRef.current = null;
       }
       
       // Remove message listener
@@ -257,26 +264,38 @@ export function SessionPage() {
     // For Python, we need to wait for Pyodide to initialize
     if (!runnerReadyRef.current) {
       console.warn("Runner not ready yet, waiting...", { language });
+      // Clear any existing checkReady timeout before starting a new one
+      if (checkReadyTimeoutRef.current) {
+        clearTimeout(checkReadyTimeoutRef.current);
+        checkReadyTimeoutRef.current = null;
+      }
       // Give it a moment to initialize
       // Note: We read from refs inside checkReady to get the latest code/language values,
       // not the stale values from when handleRun was called
       const checkReady = (attempts: number = 0) => {
         if (runnerFrameRef.current && runnerReadyRef.current) {
           console.log("Runner is now ready, executing code");
+          checkReadyTimeoutRef.current = null; // Clear timeout ref since we're done
           setOutput([]);
           setError(undefined);
           // Read current code and language from refs to avoid stale closure values
           sendCodeToRunner(runnerFrameRef.current, codeRef.current, languageRef.current);
         } else if (!runnerFrameRef.current) {
           console.error("Runner iframe is null after waiting");
+          checkReadyTimeoutRef.current = null; // Clear timeout ref
           setError("Code runner is not initialized. Please refresh the page.");
         } else if (attempts < 15) {
-          setTimeout(() => checkReady(attempts + 1), 200);
+          // Track the timeout ID so it can be cancelled if needed
+          checkReadyTimeoutRef.current = setTimeout(() => {
+            checkReadyTimeoutRef.current = null; // Clear ref before recursive call
+            checkReady(attempts + 1);
+          }, 200);
         } else {
           console.error("Runner timeout after waiting", {
             hasFrame: !!runnerFrameRef.current,
             isReady: runnerReadyRef.current,
           });
+          checkReadyTimeoutRef.current = null; // Clear timeout ref
           setError("Code runner is taking longer than expected to load. Please refresh the page.");
         }
       };
