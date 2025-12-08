@@ -211,14 +211,18 @@
       }
     });
     
-    // Initialize Pyodide in the background
-    if (typeof loadPyodide !== 'undefined') {
-      initializePyodide().catch(err => {
-        console.error('Failed to initialize Pyodide:', err);
-      });
-    }
-    
-    window.parent.postMessage({ type: 'ready' }, '*');
+    // Initialize Pyodide, then signal readiness (prevents premature "ready" before Pyodide is loaded)
+    (async () => {
+      if (typeof loadPyodide !== 'undefined') {
+        try {
+          await initializePyodide();
+        } catch (err) {
+          console.error('Failed to initialize Pyodide:', err);
+        }
+      }
+      // Only send ready after initialization attempt completes
+      window.parent.postMessage({ type: 'ready' }, '*');
+    })();
   </script>
 </body>
 </html>

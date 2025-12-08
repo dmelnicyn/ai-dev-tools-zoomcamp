@@ -28,26 +28,38 @@ export function EditorPanel({
   const debounceTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const lastEmittedValueRef = useRef<string>(value);
 
+  // Update lastEmittedValueRef when value prop changes (from remote updates)
   useEffect(() => {
     lastEmittedValueRef.current = value;
+    // Clear any pending debounce timer when value changes externally
+    if (debounceTimerRef.current) {
+      clearTimeout(debounceTimerRef.current);
+      debounceTimerRef.current = null;
+    }
   }, [value]);
 
   const handleEditorChange = (newValue: string | undefined) => {
     const code = newValue || "";
     
+    // Check against the current lastEmittedValueRef to prevent duplicate emissions
     if (code === lastEmittedValueRef.current) {
       return;
     }
 
+    // Update lastEmittedValueRef immediately to prevent race conditions
+    // This ensures subsequent identical changes within 500ms are properly detected
+    lastEmittedValueRef.current = code;
     onChange(code);
 
+    // Clear any pending debounce timer
     if (debounceTimerRef.current) {
       clearTimeout(debounceTimerRef.current);
     }
 
-    debounceTimerRef.current = setTimeout(() => {
-      lastEmittedValueRef.current = code;
-    }, 500);
+    // The debounce timer is no longer needed for lastEmittedValueRef update
+    // since we update it immediately above. This timer could be used for other
+    // debouncing purposes if needed in the future.
+    debounceTimerRef.current = null;
   };
 
   useEffect(() => {

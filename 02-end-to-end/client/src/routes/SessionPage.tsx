@@ -28,13 +28,18 @@ export function SessionPage() {
 
   // Initialize runner iframe - separate effect to ensure containerRef is available
   useEffect(() => {
-    // CRITICAL: Set up message handler FIRST, before creating iframe
-    // The iframe sends "ready" message immediately on load, so we must be listening
+    // Track timeout and fallback timeout for cleanup
+    let timeoutId: ReturnType<typeof setTimeout> | null = null;
+    let fallbackTimeoutId: ReturnType<typeof setTimeout> | null = null;
+    let iframeElement: HTMLIFrameElement | null = null;
+    
+    // CRITICAL: Set up message handler that can handle messages even before iframe is assigned to ref
+    // Store iframe reference in closure to avoid race conditions
     const handleMessage = (event: MessageEvent) => {
-      // Check if message is from our iframe
-      const iframeWindow = runnerFrameRef.current?.contentWindow;
+      // Check if message is from our iframe (check both ref and closure variable)
+      const iframeWindow = iframeElement?.contentWindow || runnerFrameRef.current?.contentWindow;
       if (!iframeWindow) {
-        // Iframe not created yet, but we might receive messages from other sources
+        // Iframe not created yet, ignore messages
         return;
       }
 
@@ -47,6 +52,11 @@ export function SessionPage() {
 
       if (event.data.type === "ready" || event.data.type === "pyodide-ready") {
         console.log("Runner iframe is ready");
+        // Clear fallback timeout since we received the actual ready message
+        if (fallbackTimeoutId) {
+          clearTimeout(fallbackTimeoutId);
+          fallbackTimeoutId = null;
+        }
         runnerReadyRef.current = true;
       } else if (event.data.type === "result") {
         setOutput(event.data.output || []);
@@ -57,13 +67,9 @@ export function SessionPage() {
       }
     };
 
-    // Register message handler immediately
+    // Register message handler immediately (before iframe creation)
     window.addEventListener("message", handleMessage);
     console.log("Message handler registered");
-    
-    // Track timeout and fallback timeout for cleanup
-    let timeoutId: ReturnType<typeof setTimeout> | null = null;
-    let fallbackTimeoutId: ReturnType<typeof setTimeout> | null = null;
     
     // Function to initialize the iframe
     const initializeIframe = () => {
@@ -81,13 +87,15 @@ export function SessionPage() {
 
       try {
         console.log("Creating runner iframe...");
-        runnerFrameRef.current = createRunnerFrame(containerRef.current);
+        iframeElement = createRunnerFrame(containerRef.current);
+        runnerFrameRef.current = iframeElement;
         console.log("Runner iframe created successfully");
         
         // Fallback check: If ready message isn't received after 2 seconds but iframe is loaded,
         // mark as ready anyway (for JavaScript, Python still needs Pyodide)
+        // Only set fallback if we haven't already received a ready message
         fallbackTimeoutId = setTimeout(() => {
-          if (runnerFrameRef.current?.contentWindow && !runnerReadyRef.current) {
+          if ((iframeElement?.contentWindow || runnerFrameRef.current?.contentWindow) && !runnerReadyRef.current) {
             console.warn("Fallback: Assuming iframe is ready (ready message not received)");
             runnerReadyRef.current = true;
           }
@@ -124,14 +132,16 @@ export function SessionPage() {
       // Remove message listener
       window.removeEventListener("message", handleMessage);
       
-      // Clean up iframe if it exists
-      if (runnerFrameRef.current && containerRef.current) {
+      // Clean up iframe if it exists (check both ref and closure variable)
+      const iframeToRemove = runnerFrameRef.current || iframeElement;
+      if (iframeToRemove && containerRef.current) {
         try {
-          containerRef.current.removeChild(runnerFrameRef.current);
+          containerRef.current.removeChild(iframeToRemove);
         } catch (e) {
           // Ignore if already removed
         }
         runnerFrameRef.current = null;
+        iframeElement = null;
       }
       
       // Reset ready state
