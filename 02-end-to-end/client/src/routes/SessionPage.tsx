@@ -294,8 +294,13 @@ export function SessionPage() {
     setError(undefined);
     
     try {
-      console.log("Sending code to runner", { language, codeLength: code.length });
-      sendCodeToRunner(runnerFrameRef.current, code, language);
+      // Read current code and language from refs to ensure we use the latest values,
+      // not stale closure values (consistent with the checkReady path above)
+      console.log("Sending code to runner", { 
+        language: languageRef.current, 
+        codeLength: codeRef.current.length 
+      });
+      sendCodeToRunner(runnerFrameRef.current, codeRef.current, languageRef.current);
     } catch (error) {
       console.error("Error sending code to runner:", error);
       setError(`Failed to execute code: ${error instanceof Error ? error.message : String(error)}`);
