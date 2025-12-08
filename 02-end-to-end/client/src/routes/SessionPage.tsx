@@ -305,8 +305,11 @@ export function SessionPage() {
           setError("Code runner is not initialized. Please refresh the page.");
         } else if (attempts < 15) {
           // Track the timeout ID so it can be cancelled if needed
+          // Store the timeout ID immediately to ensure proper tracking for cleanup
           checkReadyTimeoutRef.current = setTimeout(() => {
-            checkReadyTimeoutRef.current = null; // Clear ref before recursive call
+            // Don't clear the ref here - let the recursive call set a new timeout
+            // If recursion continues, it will overwrite this ref with the new timeout ID
+            // If recursion stops (success/error/max attempts), those branches clear the ref
             checkReady(attempts + 1);
           }, 200);
         } else {
