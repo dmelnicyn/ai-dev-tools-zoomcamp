@@ -30,6 +30,8 @@ export function SessionPage() {
   const languageRef = useRef<string>(language);
   // Ref to track checkReady timeout so it can be cleaned up
   const checkReadyTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+  // Ref to track remote update timeout so it can be cleared/reset for rapid updates
+  const remoteUpdateTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null);
 
   // Keep refs in sync with state so async callbacks can access latest values
   useEffect(() => {
@@ -186,19 +188,31 @@ export function SessionPage() {
         cleanupSocketRef.current = connectToSession(sessionId, {
           onSessionState: (state) => {
             if (!mounted) return;
+            // Clear any pending timeout from previous updates
+            if (remoteUpdateTimeoutRef.current) {
+              clearTimeout(remoteUpdateTimeoutRef.current);
+            }
             isApplyingRemoteUpdateRef.current = true;
             setCode(state.code);
             setLanguage(state.language);
-            setTimeout(() => {
+            remoteUpdateTimeoutRef.current = setTimeout(() => {
               isApplyingRemoteUpdateRef.current = false;
+              remoteUpdateTimeoutRef.current = null;
             }, 100);
           },
           onCodeUpdate: (update) => {
-            if (!mounted || isApplyingRemoteUpdateRef.current) return;
+            if (!mounted) return;
+            // Clear any pending timeout from previous updates to handle rapid successive updates
+            if (remoteUpdateTimeoutRef.current) {
+              clearTimeout(remoteUpdateTimeoutRef.current);
+            }
+            // Always apply the update, but set flag to prevent local echo
             isApplyingRemoteUpdateRef.current = true;
             setCode(update.code);
-            setTimeout(() => {
+            // Reset the flag after debounce period
+            remoteUpdateTimeoutRef.current = setTimeout(() => {
               isApplyingRemoteUpdateRef.current = false;
+              remoteUpdateTimeoutRef.current = null;
             }, 100);
           },
           onLanguageUpdate: (update) => {
@@ -226,6 +240,11 @@ export function SessionPage() {
 
     return () => {
       mounted = false;
+      // Clear remote update timeout on unmount
+      if (remoteUpdateTimeoutRef.current) {
+        clearTimeout(remoteUpdateTimeoutRef.current);
+        remoteUpdateTimeoutRef.current = null;
+      }
       if (cleanupSocketRef.current) {
         cleanupSocketRef.current();
       }

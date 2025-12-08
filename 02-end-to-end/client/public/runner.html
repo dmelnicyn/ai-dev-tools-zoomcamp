@@ -216,12 +216,25 @@
       if (typeof loadPyodide !== 'undefined') {
         try {
           await initializePyodide();
+          // Only send ready if Pyodide initialization succeeded
+          // (pyodideReady will be true after successful initialization)
+          if (pyodideReady) {
+            window.parent.postMessage({ type: 'ready' }, '*');
+          } else {
+            // If initialization failed silently, send error
+            window.parent.postMessage({
+              type: 'pyodide-error',
+              error: 'Pyodide initialization failed silently'
+            }, '*');
+          }
         } catch (err) {
           console.error('Failed to initialize Pyodide:', err);
+          // Don't send ready if initialization failed - pyodide-error was already sent by initializePyodide
         }
+      } else {
+        // If Pyodide is not available, send ready immediately (JavaScript execution is supported)
+        window.parent.postMessage({ type: 'ready' }, '*');
       }
-      // Only send ready after initialization attempt completes
-      window.parent.postMessage({ type: 'ready' }, '*');
     })();
   </script>
 </body>
