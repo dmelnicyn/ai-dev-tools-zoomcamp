@@ -11,3 +11,6 @@ coverage/
 .env.*
 
 
+__pycache__/
+*.pyc
+*.zip
